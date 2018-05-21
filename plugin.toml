@@ -1,0 +1,4 @@
+[plugin]
+description = "Limit apps to an IP"
+version = "0.0.1"
+[plugin.config]

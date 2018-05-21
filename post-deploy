@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Adds a clock process to an app's Procfile
+
+if [  "$PLUGIN_CORE_AVAILABLE_PATH" == "" ]
+then
+  PLUGIN_CORE_AVAILABLE_PATH="/var/lib/dokku/plugins/available"
+fi
+
+set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+APP="$1"
+verify_app_name "$APP"
+TMP_WORK_DIR="$2"
+REV="$3" # optional, may not be sent for tar-based builds
+HOSTS="/etc/hosts"
+IP4="dokku_apps_ip4"
+IP6="dokku_apps_ip6"
+IP4_replacement="#"
+IP6_replacement="#"
+
+if grep -q "$IP4" "$HOSTS" 2>/dev/null
+then
+  IP4_replacement="list-n dokku_apps_ip4"
+fi
+
+if grep -q "$IP6" "$HOSTS" 2>/dev/null
+then
+  IP6_replacement="list-n dokku_apps_ip6"
+fi
+
+if [ "$IP4_replacement" == "#" ]  && [ "$IP6_replacement" == "#" ]
+then
+  echo "*"
+  echo "*"
+  echo "* To restrict apps to a specific IP, map those IPs to" 
+  echo "* the following domains in $HOSTS"
+  echo "*"
+  echo "* dokku_apps_ip4"
+  echo "* dokku_apps_ip6"
+  echo "*"
+  echo "* They map top IPv4 and IPv6 ips respectively." 
+  echo "* If you do not provide one apps will not listen"
+  echo "* to no IP rather than listen to all."
+  echo "*"
+  echo "*"
+  exit
+fi  
+
+APP_NGINX="/home/dokku/$APP/nginx.conf" 
+APP_ORIGINAL_NGINX="/home/dokku/$APP/nginx.conf.original"
+cp $APP_NGINX $APP_ORIGINAL_NGINX
+sed -i "s/listen[^\[;]*80;/$IP4_replacement:80;/" "$APP_NGINX"
+sed -i "s/listen[^;]*[::]80;/$IP6_replacement:80;/" "$APP_NGINX"
+sed -i "s/listen[^\[;]*http2;/$IP4_replacement:443 ssl http2;/" "$APP_NGINX"
+sed -i "s/listen[^;]*[::][^;]*http2;/$IP6_replacement:443 ssl http2;/" "$APP_NGINX"
+sed -i "s/list-n/listen/" "$APP_NGINX"
+
